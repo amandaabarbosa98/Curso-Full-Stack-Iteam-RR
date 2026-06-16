@@ -2,11 +2,13 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <locale>
 using namespace std;
 
-string times[8] = {"BRA", "EGT", "RSA", "MAR", "FRA", "ARG", "GER", "COS"};
-int placares[4][2] = {3, 0, 1, 1, 1, 2, 4, 2};
-
+#ifdef _WIN32
+#include <windows.h>
+#endif
+ 
 int comparar_resultado(int timex, int timey, int apostax, int apostay) {
     if (timex == apostax && timey == apostay){
         return 10;
@@ -37,60 +39,106 @@ int comparar_resultado(int timex, int timey, int apostax, int apostay) {
     }
 }
 
-
 int validar_valor(int valor){
-    if(valor > 0){
+    if(valor >= 0){
         return 1;
     }else{
         return 0;
     }
-
-
 }
 
-int nova_aposta(int num_jogo){
-    int aposta[2];
-    int pontos = 0;
-    
-    for (int i = 0; i < num_jogo; i++){
-        cout << i + 1 <<"º Jogo: " << times[i * 2] << " X " << times[i * 2 + 1] << endl;
-        cout << "Digite o placar para o time " << times[i * 2] << ":" << endl;
-        cin >> aposta[0];
-        while(!validar_valor(aposta[0])){
-            cout << "Informe um valor positivo para o número de gols." << endl;
-            cin >> aposta[0];
-        }
-        
-        cout << "Digite o placar para o time " << times[i * 2 + 1] << ":" <<endl;
-        cin >> aposta[1];
-        while(!validar_valor(aposta[1])){
-            cout << "Informe um valor positivo para o número de gols." << endl;
-            cin >> aposta[1];
-        }
 
-        pontos += comparar_resultado(placares[i][0], placares[i][1], aposta[0], aposta[1]);
+class Jogo{
+private:
+    string time1;
+    string time2;
+    int gols1;
+    int gols2;
+public:
+    Jogo(string time1, string time2, int gols1, int gols2){
+        this -> time1 = time1;
+        this -> time2 = time2;
+        this -> gols1 = gols1;
+        this -> gols2 = gols2; 
     }
-    return pontos;
-}
 
-void mostrar_classificacao(vector<string> &apostadores, vector<int> &pontuacoes){
+    string nome_time1(){
+        return time1;
+    }
+
+    string nome_time2(){
+        return time2;
+    }
+
+    int gols_time1(){
+        return gols1;
+    }
+
+    int gols_time2(){
+        return gols2;
+    }
+
+};
+
+class Apostador {
+private:
+    string nome;
+    int apostas[4][2];
+public:
+    
+    int pontuacao = 0;
+
+    Apostador(string nome){
+        this -> nome = nome; 
+    }
+
+    string retornar_nome(){
+        return this -> nome;
+    }
+
+    void registrar_aposta(vector<Jogo> jogos){
+        int c = 0;
+        for (Jogo x : jogos){
+            cout << c + 1 <<"º Jogo: " << x.nome_time1() << " X " << x.nome_time2() << endl;
+            cout << "Digite o placar para o time " << x.nome_time1() << ":" << endl;
+            cin >> apostas[c][0];
+            while(!validar_valor(apostas[c][0])){
+                cout << "Informe um valor positivo para o número de gols." << endl;
+                cin >> apostas[c][0];
+            }
+            
+            cout << "Digite o placar para o time " << x.nome_time2() << ":" <<endl;
+            cin >> apostas[c][1];
+            while(!validar_valor(apostas[c][1])){
+                cout << "Informe um valor positivo para o número de gols." << endl;
+                cin >> apostas[c][1];
+            }
+
+            pontuacao += comparar_resultado(x.gols_time1(), x.gols_time2(), apostas[c][0], apostas[c][1]);
+            c++;
+        }
+    }
+};
+
+
+void mostrar_classificacao(vector<Apostador> &apostadores){
     cout << "\n\n========== Ranking SportBet ==========" << endl;
     vector<pair<int, string>> ranking;
     
-    for (size_t i = 0; i < apostadores.size(); ++i) {
-        ranking.push_back({pontuacoes[i], apostadores[i]});
-    }
-    sort(ranking.begin(), ranking.end(), greater<pair<int, string>>());
+    sort(apostadores.begin(), apostadores.end(), [](const Apostador& a, const Apostador& b){return a.pontuacao > b.pontuacao;});
 
-    for (size_t i = 0; i < ranking.size(); ++i) {
-        cout << (i + 1) << "º Lugar: " 
-             << ranking[i].second << " - " 
-             << ranking[i].first << " pontos" << endl;
+    int c = 0;
+    for (Apostador x : apostadores){
+        cout << (c + 1) << "º Lugar: " 
+            << x.retornar_nome() << " - " 
+            << x.pontuacao << " pontos" << endl;
+        c++;
     }
+
     cout << "======================================" << endl;
 }
 
-void menu(vector<string> &apostadores, vector<int> &pontuacoes, int qtde_jogos){
+void menu(vector<Apostador> &apostadores, vector<Jogo>jogos, int qtde_jogos){
     int op;
 
     do{
@@ -105,10 +153,10 @@ void menu(vector<string> &apostadores, vector<int> &pontuacoes, int qtde_jogos){
             cout << "Digite seu nome: ";
             string novo_apostador;
             cin >> novo_apostador;
-            apostadores.push_back(novo_apostador);
-            pontuacoes.push_back(nova_aposta(qtde_jogos));
+            apostadores.push_back(Apostador(novo_apostador));
+            apostadores.back().registrar_aposta(jogos);
         }else if(op == 2){
-            mostrar_classificacao(apostadores,pontuacoes);
+            mostrar_classificacao(apostadores);
         }else if (op == 0){
             cout << "Saindo..." << endl;
             break;
@@ -120,11 +168,50 @@ void menu(vector<string> &apostadores, vector<int> &pontuacoes, int qtde_jogos){
 }
 
 int main() {
-    vector<string> apostadores;
-    vector<int> pontuacoes;
-    
 
-    menu(apostadores, pontuacoes, 4);
+    #ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+    #else
+    setlocale(LC_ALL, "pt_BR.UTF-8");
+    #endif
+    
+    //setlocale(LC_ALL, "portuguese");
+    vector<Apostador> apostadores;
+    vector<Jogo> jogos;
+
+    int usar_padrao;
+    cout << "Você deseja registrar os times e placares para os 4 jogos ou usar os placares e times padrões?" << endl;
+    cout << "Digite 0 - Para registrar os times e placares;" << endl;
+    cout << "Digite 1 - Para usar os times e placares padroes;" << endl;
+    cin >> usar_padrao;
+    
+    if(!usar_padrao){
+        string time1;
+        string time2;
+        int gols1, gols2;
+
+        for (int i = 0; i < 4; i++) {
+            cout << "\n\nJogo " << i + 1 << ":" << endl; 
+            cout << "Informe o nome do primeiro time: " << endl;
+            cin >> time1;
+            cout << "Informe o nome do segundo time: " << endl;
+            cin >> time2;
+            cout << "Informe o número de gols do primeiro time: " << endl;
+            cin >> gols1;
+            cout << "Informe o número de gols do segundo time: " << endl;
+            cin >> gols2;
+            
+            
+            jogos.push_back(Jogo(time1, time2, gols1, gols2));
+        }
+    }else {
+        jogos.push_back(Jogo("BRA", "EGT", 3, 0));
+        jogos.push_back(Jogo("RSA", "MAR", 1, 1));
+        jogos.push_back(Jogo("FRA", "ARG", 1, 2));
+        jogos.push_back(Jogo("GER", "COS", 4, 2));
+    }
+
+    menu(apostadores, jogos, 4);
 
     return 0;
 }
